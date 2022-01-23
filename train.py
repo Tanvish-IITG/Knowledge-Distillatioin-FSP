@@ -10,8 +10,9 @@ from torch.utils.data import random_split, DataLoader
 import torch.optim as optimizers
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score
-from loss import FSP
+from loss import FSP, KL_div
 torch.autograd.set_detect_anomaly(True)
+
 def main():
     # settings
     torch.manual_seed(123)
@@ -183,7 +184,9 @@ def main():
         for (x,t) in tqdm(train_dataloader, leave=False):
             x, t = x.to(device), t.to(device)
             fm_s0, fm_s1, fm_s2, fm_s3, pred_s = student(x)
-            loss = loss_fn(pred_s, t)
+            fm_t0, fm_t1, fm_t2, fm_t3, pred_t = teacher(x)
+            
+            loss = loss_fn(pred_s, t) + KL_div(pred_t,pred_s)
             student_optim.zero_grad()
             loss.backward(retain_graph=True)
             student_optim.step()

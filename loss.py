@@ -1,4 +1,5 @@
 import torch
+from torch.functional import Tensor
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -18,6 +19,11 @@ class FSP(nn.Module):
     def forward(self, fm_s1, fm_s2, fm_t1, fm_t2):
         loss = F.mse_loss(self.calculate_fsp_matrix(fm_s1, fm_s2), self.calculate_fsp_matrix(fm_t1, fm_t2))
         return loss
+
+def KL_div(teacher: Tensor, student : Tensor):
+    teacher = F.softmax(teacher)
+    student = F.softmax(student)
+    return torch.mean(teacher * ( torch.log(teacher) - torch.log(student)) )
 
 if __name__ == '__main__':
     input1 = torch.randn((2,64, 7, 7))
