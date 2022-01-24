@@ -1,0 +1,27 @@
+dataset:
+  path: "./data/cifar10"
+  name: "CIFAR10"
+  img_size: 32
+  ratio: 0.8
+  batch_size: 256
+network:
+  input_dim: 3
+  output_dim: 10
+teachers_train: 
+  optim: 
+    - Adam
+    - SGD
+    - Adagrad
+  network_path: ./logs/teacher
+  log_path: ./logs/teacher_log
+  epochs: [12,12,12]
+student_train: 
+  optim: Adam
+  network_path: ./logs/teacher
+  log_path: ./logs/teacher_log
+  epochs: 12
+augnet_train:
+  optim: Adam
+  network_path: ./logs/teacher
+  log_path: ./logs/teacher_log
+  epochs: 12

@@ -12,6 +12,8 @@ import torch.optim as optimizers
 from tqdm import tqdm  # to be removed
 from sklearn.metrics import accuracy_score
 from loss import FSP, KL_div
+import yaml
+import sys
 
 # helps in debugging backward pass
 torch.autograd.set_detect_anomaly(True)
@@ -27,11 +29,11 @@ def give_dataloader(data_dir,dataset_name,img_size,train_ratio,batch_size):
                                     transforms.ToTensor()]
                                     )
 
-    datatest_train = datasets.eval(dataset_name)(root=data_dir,
+    datatest_train = eval("datasets." + dataset_name)(root=data_dir,
                                     download=True,
                                     train=True,
                                     transform=train_transform)
-    datatest_test = datasets.eval(dataset_name)(root=data_dir,
+    datatest_test = eval("datasets." + dataset_name)(root=data_dir,
                                     download=True,
                                     train=False,
                                     transform=test_transform)
@@ -55,8 +57,7 @@ def give_dataloader(data_dir,dataset_name,img_size,train_ratio,batch_size):
 
     return train_dataloader, val_dataloader, test_dataloader
 
-def TrainTeacher(Network : torch.nn.Module, trainDataloader: DataLoader, valDataloader: DataLoader, device : str, epochs : int, optim : optimizers, / 
-    Network_path : str, logs_path : str):
+def TrainTeacher(Network : torch.nn.Module, trainDataloader: DataLoader, valDataloader: DataLoader, device : str, epochs : int, optim : optimizers, Network_path : str, logs_path : str):
     score = 0.
     loss_fn = nn.CrossEntropyLoss()
     Network_hist = {'loss': [], 'accuracy': [], 'val_loss':[], 'val_accuracy': []}
@@ -111,8 +112,7 @@ def TrainTeacher(Network : torch.nn.Module, trainDataloader: DataLoader, valData
 
 
 
-def TrainStudent(Network : torch.nn.Module, tNets : List[torch.nn.Module], trainDataloader: DataLoader, valDataloader: DataLoader, device : str, epochs : int, optim : optimizers, / 
-    Network_path : str, logs_path : str):
+def TrainStudent(Network : torch.nn.Module, tNets : List[torch.nn.Module], trainDataloader: DataLoader, valDataloader: DataLoader, device : str, epochs : int, optim : optimizers, Network_path : str, logs_path : str):
     score = 0.
     loss_fn = nn.CrossEntropyLoss()
     Network_hist = {'loss': [], 'accuracy': [], 'val_loss':[], 'val_accuracy': []}
@@ -189,21 +189,56 @@ def main():
     np.random.seed(123)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    train_dataloader, val_dataloader, test_dataloader = give_dataloader("./data/cifar10","CIFAR10",32,0.8,2)
+    with open(sys.argv[1], "r") as yamlfile:
+        config = yaml.load(yamlfile, Loader=yaml.FullLoader)
+    print("Read successful")
+
+    input_dim = config['network']['input_dim']
+    output_dim = config['network']['output_dim']
+
+    data_path = config['dataset']['path']
+    dataset_name = config['dataset']['name']
+    img_size = config['dataset']['img_size']
+    ratio = config['dataset']['ratio']
+    batch_size = config['dataset']['batch_size']
+
+
+
+
+    train_dataloader, val_dataloader, test_dataloader = give_dataloader(data_path,dataset_name,img_size,ratio,batch_size)
     
     # model
-    teachers = [TeacherNet(input_dim=3, output_dim=10).to(device),TeacherNet(input_dim=3, output_dim=10).to(device),TeacherNet(input_dim=3, output_dim=10).to(device)]
-    student = StudentNet(input_dim=3, output_dim=10).to(device)
+    teachers = [TeacherNet(input_dim=input_dim, output_dim=output_dim).to(device),TeacherNet(input_dim=input_dim, output_dim=output_dim).to(device),TeacherNet(input_dim=input_dim, output_dim=input_dim).to(device)]
+    student = StudentNet(input_dim=input_dim, output_dim=output_dim).to(device)
+
 
     optim_type = ["Adam","SGD","Adagrad"]
-    for i in range(3):
-        optim = optimizers.eval(optim_type)(teachers[i].parameters())
-        TrainTeacher(teachers[i],train_dataloader,val_dataloader,device,12,optim,"./logs/teacher" + str(i+1) +".pt","./logs/teacher_logs" + str(i+1) + ".pickle")
+    optim_type = config["teachers_train"]['optim']
+    network_path = config["teachers_train"]['network_path']
+    log_path = config["teachers_train"]['log_path']
+    epochs = [12,12,12]
+    epochs = config["teachers_train"]['epochs']
 
-    TrainStudent(student,teachers,train_dataloader,val_dataloader,device,12,optimizers.Adam(student.parameters()),"./logs/student.pt","./logs/student.pickle")
+    for i in range(3):
+        optim = eval("optimizers." + optim_type[i])(teachers[i].parameters())
+        TrainTeacher(teachers[i],train_dataloader,val_dataloader,device,epochs[i],optim,network_path + str(i+1) +".pt",log_path + str(i+1) + ".pickle")
+
+    network_path = config["student_train"]['network_path']
+    log_path = config["student_train"]['log_path']
+    epoch = 12
+    epoch = config["student_train"]['epoch']
+    optim = config["student_train"]['optim']
+
+    TrainStudent(student,teachers,train_dataloader,val_dataloader,device,epoch,eval("optimizers." + optim)(student.parameters()),network_path + ".pt", log_path + ".pickle")
 
     augnet = AugNet(student)
-    TrainTeacher(augnet,train_dataloader,val_dataloader,device,12,optimizers.Adam(augnet.parameters()), "./logs/augnet.pth", "./logs/augnet.pickle")
+
+    network_path = config["augnet_train"]['network_path']
+    log_path = config["augnet_train"]['log_path']
+    epoch = 12
+    epoch = config["augnet_train"]['epoch']
+    optim = config["augnet_train"]['optim']
+    TrainTeacher(augnet,train_dataloader,val_dataloader,device,epoch,eval("optimizers." + optim)(augnet.parameters()), network_path + ".pth", log_path + ".pickle")
 
 if __name__ == '__main__':
     main()
