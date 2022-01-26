@@ -21,8 +21,8 @@ class FSP(nn.Module):
         return loss
 
 def KL_div(teacher: Tensor, student : Tensor):
-    teacher = F.softmax(teacher)
-    student = F.softmax(student)
+    teacher = F.softmax(teacher, dim = 1)
+    student = F.softmax(student, dim = 1)
     return torch.mean(teacher * ( torch.log(teacher) - torch.log(student)) )
 
 if __name__ == '__main__':

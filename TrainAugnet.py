@@ -128,15 +128,19 @@ def TrainStudent(Network : torch.nn.Module, tNets : List[torch.nn.Module], train
         for (x,t) in trainDataloader:
             x,t = x.to(device), t.to(device)
             fm_s0, fm_s1, fm_s2, fm_s3, pred_s = Network(x)
-            FSP_loss = torch.tensor(0,dtype = torch.float32, requires_grad = True)
-            kl_div_loss = torch.tensor(0,dtype = torch.float32, requires_grad = True)
-
+            FSP_loss_list = []
+            kl_div_loss_list = []
+           
             for tNet in tNets:
                 fm_t0, fm_t1, fm_t2, fm_t3, pred_t = tNet(x)
-                FSP_loss += fsp_loss(fm_s0, fm_s1, fm_t0, fm_t1)
-                FSP_loss += fsp_loss(fm_s1, fm_s2, fm_t1, fm_t2)
-                FSP_loss += fsp_loss(fm_s2, fm_s3, fm_t2, fm_t3)
-                kl_div_loss += KL_div(pred_t,pred_s)
+                FSP_loss = fsp_loss(fm_s0, fm_s1, fm_t0, fm_t1) + fsp_loss(fm_s1, fm_s2, fm_t1, fm_t2) + fsp_loss(fm_s2, fm_s3, fm_t2, fm_t3)
+                FSP_loss_list.append(FSP_loss)
+                kl_div_loss_list.append(KL_div(pred_t,pred_s))
+
+            FSP_loss = torch.stack(FSP_loss_list,dim = 0)
+            kl_div_loss = torch.stack(kl_div_loss_list,dim = 0)
+            FSP_loss = FSP_loss.sum()
+            kl_div_loss = kl_div_loss.sum()
 
             k = len(tNets)
             FSP_loss /= k
@@ -181,8 +185,6 @@ def TrainStudent(Network : torch.nn.Module, tNets : List[torch.nn.Module], train
         pickle.dump(Network_hist, f)
 
 
-
-
 def main():
     # settings
     torch.manual_seed(123)
@@ -208,7 +210,7 @@ def main():
     train_dataloader, val_dataloader, test_dataloader = give_dataloader(data_path,dataset_name,img_size,ratio,batch_size)
     
     # model
-    teachers = [TeacherNet(input_dim=input_dim, output_dim=output_dim).to(device),TeacherNet(input_dim=input_dim, output_dim=output_dim).to(device),TeacherNet(input_dim=input_dim, output_dim=input_dim).to(device)]
+    teachers = [TeacherNet(input_dim=input_dim, output_dim=output_dim).to(device),TeacherNet(input_dim=input_dim, output_dim=output_dim).to(device),TeacherNet(input_dim=input_dim, output_dim=output_dim).to(device)]
     student = StudentNet(input_dim=input_dim, output_dim=output_dim).to(device)
 
 
