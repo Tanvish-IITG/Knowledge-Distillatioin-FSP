@@ -11,7 +11,7 @@ from torch.utils.data import random_split, DataLoader
 import torch.optim as optimizers
 from tqdm import tqdm  # to be removed
 from sklearn.metrics import accuracy_score
-from loss import FSP, KL_div
+from loss import KL_div, fspLoss
 import yaml
 import sys
 
@@ -116,7 +116,6 @@ def TrainStudent(Network : torch.nn.Module, tNets : List[torch.nn.Module], train
     score = 0.
     loss_fn = nn.CrossEntropyLoss()
     Network_hist = {'loss': [], 'accuracy': [], 'val_loss':[], 'val_accuracy': []}
-    fsp_loss = FSP()
 
     # train teacher
     for epoch in range(epochs):
@@ -133,7 +132,7 @@ def TrainStudent(Network : torch.nn.Module, tNets : List[torch.nn.Module], train
            
             for tNet in tNets:
                 fm_t0, fm_t1, fm_t2, fm_t3, pred_t = tNet(x)
-                FSP_loss = fsp_loss(fm_s0, fm_s1, fm_t0, fm_t1) + fsp_loss(fm_s1, fm_s2, fm_t1, fm_t2) + fsp_loss(fm_s2, fm_s3, fm_t2, fm_t3)
+                FSP_loss = fspLoss(fm_s0, fm_s1, fm_t0, fm_t1) + fspLoss(fm_s1, fm_s2, fm_t1, fm_t2) + fspLoss(fm_s2, fm_s3, fm_t2, fm_t3)
                 FSP_loss_list.append(FSP_loss)
                 kl_div_loss_list.append(KL_div(pred_t,pred_s))
 

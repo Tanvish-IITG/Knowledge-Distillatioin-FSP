@@ -25,6 +25,22 @@ def KL_div(teacher: Tensor, student : Tensor):
     student = F.softmax(student, dim = 1)
     return torch.mean(teacher * ( torch.log(teacher) - torch.log(student)) )
 
+def fspLoss(fm_s1 : torch.Tensor,fm_s2 : torch.Tensor ,fm_t1 : torch.Tensor ,fm_t2 : torch.Tensor):
+    fm_s1 = F.adaptive_avg_pool2d(fm_s1, (fm_s2.size(2), fm_s2.size(3)))
+    fm_t1 = F.adaptive_avg_pool2d(fm_t1, (fm_t2.size(2), fm_t2.size(3)))
+
+    fm_s1 = fm_s1.view(fm_s1.size(0), fm_s1.size(1), -1) 
+    fm_s2 = fm_s2.view(fm_s2.size(0), fm_s2.size(1), -1).transpose(1,2) 
+    fm_t1 = fm_t1.view(fm_t1.size(0), fm_t1.size(1), -1) 
+    fm_t2 = fm_t2.view(fm_t2.size(0), fm_t2.size(1), -1).transpose(1,2) 
+
+    fsp_s = torch.bmm(fm_s1,fm_s2)
+    fsp_t = torch.bmm(fm_t1,fm_t2)
+
+    return F.mse_loss(fsp_s,fsp_t)
+
+
+
 if __name__ == '__main__':
     input1 = torch.randn((2,64, 7, 7))
     input2 = torch.randn((2,64, 7, 7))
